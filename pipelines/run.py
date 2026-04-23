@@ -15,11 +15,13 @@ from biolit.flow_gatekeeper import(
 )
 from biolit.label_studio import (
     push_tasks_label_studio_no_crops,
+    extract_completed_tasks_label_studio
 )
 from ml.crop_inference.predict import flow_ml_crops
 import datetime
 import structlog
 from dotenv import load_dotenv
+import json
 
 LOGGER = structlog.get_logger()
 load_dotenv()
@@ -135,6 +137,26 @@ def run_pipeline():
     # 8. RECUPERATION DES INFOS DEPUIS LABEL STUDIO
     # -------------------------
     """
+    # Extract only the last day
+    extract_completed_tasks_label_studio(
+        project_title="Taxonomy",
+        date_min=datetime.datetime.today() - datetime.timedelta(days=1),
+        date_max=datetime.datetime.today(),
+        path="tmp.json"
+    )
+
+    tasks = [
+        t for t in json.load(open("tmp.json", 'r'))
+        if not t["data"]["methode"] == "rejected"
+    ]
+
+
+    # -------------------------
+    # 9. REMPLISSAGE DE POSTGRE AVEC LES LABELS
+    # -------------------------
+    """
+
+
 
 if __name__ == "__main__":
     run_pipeline()

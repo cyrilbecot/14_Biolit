@@ -118,7 +118,7 @@ def delete_tasks_label_studio(project_title: str):
     LOGGER.info(f"{len(task_ids)} tasks deleted from project {project.id}")
 
 
-def extracts_finished_tasks_label_studio(
+def extract_completed_tasks_label_studio(
         project_title: str, 
         date_min: datetime, date_max: datetime,
         path: str
