@@ -2,7 +2,11 @@ import os
 import polars as pl
 from dotenv import load_dotenv
 import structlog
+
+from datetime import datetime
+
 from label_studio_sdk import LabelStudio
+from label_studio_sdk.data_manager import Filters, Column, Operator, Type
 
 LOGGER = structlog.get_logger()
 load_dotenv()
@@ -112,3 +116,43 @@ def delete_tasks_label_studio(project_title: str):
     for task_id in task_ids:
         client.tasks.delete(task_id)
     LOGGER.info(f"{len(task_ids)} tasks deleted from project {project.id}")
+
+
+def extracts_finished_tasks_label_studio(
+        project_title: str, 
+        date_min: datetime, date_max: datetime,
+        path: str
+):
+    api_key = os.getenv("LABEL_STUDIO_API_KEY_DATAFORGOOD")
+    url = os.getenv("LABEL_STUDIO_URL")
+
+    client = LabelStudio(base_url=url, api_key=api_key)
+
+    project = [
+        p for p in client.projects.list() if p.title == project_title
+    ][0]
+
+    # Selects only the tasks that were completed over a given day/week/...
+    filters = Filters.create(Filters.OR, [
+        Filters.item(
+            Column.completed_at, Operator.IN, Type.Datetime,
+            Filters.value(date_min, date_max)
+        )
+    ])
+
+    view = client.views.create(data=filters, project=project.id)
+    export_job = client.projects.exports.create(
+        id = project.id, task_filter_options = {"view": view.id}
+    )
+    export = client.projects.exports.get(
+        id=project.id, export_pk=export_job.id
+    )
+
+    with open(path, "wb") as f:
+        for chunk in client.projects.exports.download(
+            id=project.id,
+            export_pk=export.id,
+            export_type="JSON",
+            request_options={"chunk_size": 1024},
+        ):
+            f.write(chunk)
